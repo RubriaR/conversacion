@@ -22,4 +22,4 @@
 
 **Technology:** HTML, CSS, JavaScript
 
-All rights reserved © Rubria Rocha de Luna, 2026.
+*All rights reserved © Rubria Rocha de Luna, 2026.*
