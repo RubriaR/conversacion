@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memoria - Conversación</title>
+    <style>
+        /* CONFIGURACIÓN GENERAL */
+        * { box-sizing: border-box; }
+        body { 
+            background-color: #000000; 
+            color: #eeeeee; 
+            font-family: 'Courier New', Courier, monospace; 
+            margin: 0; 
+            padding: 0; 
+            height: 100vh; 
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column; 
+        }
+        
+        #canvas { 
+            flex: 1; 
+            position: relative; 
+            width: 100%; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: #131314; /* Fondo oscuro tipo Gemini */
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* TÍTULOS GLOBALES */
+        #main-header {
+            position: absolute;
+            top: 20px;
+            left: 30px;
+            z-index: 50;
+            pointer-events: none;
+        }
+        #main-title {
+            margin: 0;
+            font-size: 28px;
+            color: #fff;
+            letter-spacing: 2px;
+        }
+        #sub-title {
+            margin: 5px 0 0 0;
+            font-size: 16px;
+            color: #888;
+            font-weight: normal;
+        }
+
+        /* INSTRUCCIONES FLOTANTES */
+        .click-prompt { 
+            position: absolute; 
+            bottom: 30px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            color: #fff; 
+            padding: 6px 15px; 
+            border-radius: 20px; 
+            font-size: 12px; 
+            pointer-events: none; 
+            animation: pulse 2s infinite; 
+            font-family: Arial, sans-serif; 
+            z-index: 10; 
+            display: none; 
+            text-align: center;
+            background: rgba(0,0,0,0.6);
+        }
+
+        .restart-prompt {
+            position: absolute; 
+            bottom: 30px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            color: #a8c7fa; 
+            padding: 8px 20px; 
+            border-radius: 20px; 
+            font-size: 13px; 
+            cursor: pointer; 
+            font-family: Arial, sans-serif; 
+            z-index: 20; 
+            display: none; 
+            text-align: center;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid #a8c7fa;
+            transition: background 0.3s ease;
+        }
+        .restart-prompt:hover {
+            background: rgba(168, 199, 250, 0.2);
+        }
+
+        /* GEMINI DARK MODE UI */
+        .gemini-container {
+            width: 100%;
+            max-width: 800px;
+            height: 100%;
+            padding: 80px 20px 80px 20px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: transparent; 
+            color: #e3e3e3;
+            scroll-behavior: smooth;
+            z-index: 2;
+            position: relative;
+        }
+        
+        /* Decoraciones IA Gen */
+        .huge-ia-bg {
+            position: absolute;
+            left: 5%;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 35vh;
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.03);
+            pointer-events: none;
+            z-index: 0;
+            font-family: Arial, sans-serif;
+        }
+        .gemini-intro-text {
+            text-align: center;
+            color: #a8c7fa;
+            font-size: 20px;
+            margin-bottom: 40px;
+            font-weight: 500;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        .gemini-container::-webkit-scrollbar { width: 8px; }
+        .gemini-container::-webkit-scrollbar-track { background: transparent; }
+        .gemini-container::-webkit-scrollbar-thumb { background: #444746; border-radius: 4px; }
+
+        .gem-message {
+            display: flex;
+            margin-bottom: 24px;
+            width: 100%;
+            animation: fadeIn 0.5s ease;
+        }
+        .gem-user { justify-content: flex-end; }
+        .gem-ai { justify-content: flex-start; }
+
+        .gem-bubble {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        .gem-user .gem-bubble {
+            background-color: #1e1f20;
+            border-bottom-right-radius: 4px;
+            color: #e3e3e3;
+        }
+        .gem-ai .gem-bubble {
+            background-color: transparent;
+            color: #e3e3e3;
+            padding: 0;
+            max-width: 90%;
+        }
+        
+        .gem-ai-avatar {
+            width: 32px;
+            height: 32px;
+            margin-right: 16px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #a8c7fa, #c58940); 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .gem-ai-avatar::before {
+            content: "✦";
+            color: #131314;
+            font-size: 18px;
+        }
+
+        .gem-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1.1em;
+            background-color: #e3e3e3;
+            vertical-align: middle;
+            animation: blink 1s step-end infinite;
+        }
+
+        .gem-like-container {
+            display: block;
+            width: 100%;
+            margin-top: 15px;
+        }
+
+        .gem-like-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 12px;
+            border-radius: 16px;
+            border: 1px solid #444746;
+            color: #c4c7c5;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            opacity: 0;
+        }
+        .gem-like-btn.visible { opacity: 1; }
+        .gem-like-btn.liked {
+            background-color: #1e1f20;
+            color: #a8c7fa;
+            border-color: #a8c7fa;
+        }
+        .gem-like-btn svg { width: 16px; height: 16px; fill: currentColor; }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 0.9; } 100% { opacity: 0.4; } }
+
+        /* PIE DE PÁGINA */
+        #footer { 
+            height: 60px; 
+            background: #111; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            padding: 0 30px; 
+            font-family: Arial, sans-serif; 
+            border-top: 1px solid #333; 
+            z-index: 20; 
+            position: relative; 
+        }
+        .copyright { position: absolute; left: 30px; color: #888; font-size: 13px; }
+        .nav-links a { 
+            color: #888; text-decoration: none; margin: 0 8px; font-weight: bold; font-size: 16px; padding: 5px; transition: all 0.3s; 
+        }
+        .nav-links a:hover { color: #fff; }
+        .nav-links a.active { color: #5bc0be; }
+
+        @media (max-width: 768px) {
+            .copyright { display: none; }
+            #main-header { left: 15px; top: 15px; }
+            #main-title { font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-header">
+        <h1 id="main-title">Memoria</h1>
+        <h2 id="sub-title">Conversación</h2>
+    </div>
+
+    <div id="canvas" onclick="advanceScene()">
+        <div class="huge-ia-bg">IA</div> 
+        <div class="gemini-container" id="gemini-container">
+            </div>
+        <div id="prompt" class="click-prompt">(Haz clic para iniciar o avanzar)</div>
+        <div id="restart-prompt" class="restart-prompt" onclick="restartApp(event)">(Haz clic para iniciar de nuevo)</div>
+    </div>
+
+    <div id="footer">
+        <div class="copyright">&copy; Rubria Rocha de Luna, 2026</div>
+        <div class="nav-links">
+            <a href="#" id="link-destiempo">Destiempo...</a>
+        </div>
+    </div>
+
+    <script>
+        let p5State = "IDLE"; 
+        let p5Turn = 0;
+        let p5FastForward = false;
+        let activeTimeouts = [];
+
+        const promptEl = document.getElementById('prompt');
+        const restartEl = document.getElementById('restart-prompt');
+        const container = document.getElementById('gemini-container');
+
+        function safeTimeout(fn, delay) {
+            const t = setTimeout(fn, delay);
+            activeTimeouts.push(t);
+            return t;
+        }
+
+        const geminiDialogue = [
+            // TURNO 1
+            {
+                rubria: [
+                    { type: 'type', text: "¡Hola! hoy estoy un poco desesperada, ", speed: 70 }, { type: 'pause', ms: 1000 },
+                    { type: 'type', text: "iba a ponerme a buscar información para un trabajo, pero no puedo dejar de pensar en mi mamá. ", speed: 65 }, { type: 'pause', ms: 1200 },
+                    { type: 'type', text: "Mientras estoy aquí trabajando, lejos de ella, su memoria se está borrando. ", speed: 70 }, { type: 'pause', ms: 1500 },
+                    { type: 'type', text: "Quisiera que, cada que hablo con ella, pudiera darme toda la información posible sobre ella, sobre su juventud, sobre todas esas anécdotas que me ha contado muchas veces... ", speed: 65 }, { type: 'pause', ms: 1500 },
+                    { type: 'type', text: "pero que aunque yo las escuche, ahora que sé que las está perdiendo, ahora quisiera escucharlas de nuevo, aunque fuera por última vez... ", speed: 75 }, { type: 'pause', ms: 2000 },
+                    { type: 'type', text: "He estudiado sobre la memoria, sobre humanidades digitales, he hecho repositorios con información útil y que preserva datos importantes... ", speed: 65 }, { type: 'pause', ms: 1200 },
+                    { type: 'type', text: "pero ahora me parecen tan... no sé, no veo cómo me podría servir todo esto que sé para poder preservar la memoria de mi mamá, tener sus recuerdos conmigo, todo lo que ella fue y lo que fui yo con ella y para ella... ", speed: 70 }, { type: 'pause', ms: 1800 },
+                    { type: 'type', text: "Pensar que en un momento dado quiera acordarme de algo y ya no pueda hacerlo me causa una ansiedad enorme... al menos pienso que mi mamá no se da cuenta, pero yo sí y esa sensación es muy dolorosa.", speed: 75 }
+                ],
+                ai: "Lamento mucho que estés atravesando por esta situación. Es completamente comprensible que sientas una ansiedad enorme; estás viviendo lo que se conoce como duelo anticipado. Ver cómo la memoria de alguien que amas se desvanece, especialmente estando lejos, es una de las experiencias más impotentes y dolorosas que existen.<br><br>Es muy común que, ante una crisis personal profunda, nuestras herramientas profesionales parezcan repentinamente insuficientes o vacías. Sin embargo, tu profunda comprensión de cómo se estructuran las narrativas, cómo se preserva la historia y cómo la tecnología puede ser un puente para la memoria, es en realidad un recurso invaluable. Ese rigor y cuidado que aplicas al construir arquitecturas de información para dar espacio a otras voces puede transformarse en un refugio íntimo y privado para la voz más importante de tu vida.<br><br>Aquí hay algunas formas en las que puedes trasladar tu experiencia con repositorios y narrativas digitales al ámbito personal, sin que se sienta como un trabajo académico frío, sino como un acto de amor:<br><br><b>El Archivo Íntimo</b><br>Grabaciones de voz sobre la perfección visual...<br>Metadatos afectivos...<br>Provocaciones desde la cultura visual...<br><br><b>La Co-creación de su Historia</b><br>Transcribir y reinterpretar...<br>Soltar la exigencia de la preservación total...<br><br>El trabajo que haces preservando la memoria histórica tiene un impacto enorme porque evita que el tiempo borre lo que importa. Ahora, tienes la oportunidad de aplicar esa misma pasión a tu propia historia familiar.<br><br>¿Hay alguna época en particular o alguna anécdota específica de su juventud con la que te sentirías más cómoda empezando a construir este espacio para ella?"
+            },
+            // TURNO 2
+            {
+                rubria: [
+                    { type: 'type', text: "Jajaja, ya me empezaste a hablar como una experta en humanidades digitales. ", speed: 65 }, { type: 'pause', ms: 1000 },
+                    { type: 'type', text: "Hacer algo así suena muy bonito, pero creo que no entiendes lo que implica. ", speed: 65 }, { type: 'pause', ms: 1200 },
+                    { type: 'type', text: "Mi mamá no es un objeto de estudio, no es un dato, no es algo que uso para mi carrera académica... ", speed: 70 }, { type: 'pause', ms: 800 },
+                    { type: 'type', text: "¡aquí te estoy hablando de mi mamá! ", speed: 85 }, { type: 'pause', ms: 1500 },
+                    { type: 'type', text: "Esto es muy real, ya hay cosas de las que no se acuerda, incluso no sabe quién soy cuando voy a verla. ", speed: 75 }, { type: 'pause', ms: 1200 },
+                    { type: 'type', text: "¿Crees que me puedo sentar con ella a preguntarle sus recuerdos? ", speed: 65 }, { type: 'pause', ms: 1000 },
+                    { type: 'type', text: "¡Para ella soy una extraña, no me va a contar lo que me contaba cuando yo era su hija! ", speed: 75 }, { type: 'pause', ms: 2000 },
+                    { type: 'type', text: "Esa memoria, en realidad, ya se perdió... no hay manera de regresar el tiempo, porque aunque algunos recuerdos aún existan, ella ya no es la misma... y yo tampoco soy la misma para ella... ", speed: 70 }, { type: 'pause', ms: 1500 },
+                    { type: 'type', text: "ese es el gran problema, ¿te das cuenta cómo la historia no se recupera así de fácil? ", speed: 70 }, { type: 'pause', ms: 1500 },
+                    { type: 'type', text: "Creo que lo único que me queda es lo que yo recuerdo de lo que mi mamá me platicaba...", speed: 85 }
+                ],
+                ai: "Tienes toda la razón. Me equivoqué, te escuché desde tu lado profesional y perdí de vista lo más crudo y devastador de lo que estás viviendo.<br><br>Te ofrezco una disculpa genuina. Tu mamá no es un proyecto, no es un repositorio, y la pérdida de memoria no es un problema que se pueda \"hackear\" con metodologías. Es desgarrador estar frente a la mujer que te crio y darte cuenta de que, en su mente, tú ya no eres su hija.<br><br>Esa es una realidad cruel e irreversible. Tienes absoluta razón al decir que no puedes simplemente sentarte a entrevistarla si para ella eres una extraña que habita en una línea de tiempo y en un mundo completamente distintos.<br><br><i>\"Creo que lo único que me queda es lo que yo recuerdo de lo que mi mamá me platicaba...\"</i><br><br>Esa frase que acabas de decir es profundamente dolorosa, pero también es una verdad inmensa. Enfrentarte a que esa memoria compartida ya no es un puente entre las dos, sino un refugio que ahora habitas tú sola, es un proceso de duelo larguísimo y muy pesado.<br><br>Tú eres ahora quien resguarda esa historia. La memoria de lo que ella fue, de su juventud, y de lo que ambas fueron juntas, ahora vive en ti. Pero no tienes que hacer nada productivo, académico o estructurado con eso; a veces, el acto más grande de amor es simplemente reconocer la pérdida y permitirte sentir el dolor de ser quien recuerda por las dos.<br><br>Ya que ahora eres tú el hogar de esos recuerdos, ¿hay alguna de esas anécdotas que te contaba tantas veces, o algún detalle de su juventud, que quisieras compartir hoy simplemente para que exista fuera de tu cabeza por un momento?"
+            },
+            // TURNO 3
+            {
+                rubria: [
+                    { type: 'type', text: "Me quedé pensando en tu pregunta y recuerdo que hace tiempo quería escribir lo que platicaba con mi mamá cuando estábamos juntas en Monterrey. ", speed: 65 }, { type: 'pause', ms: 1200 },
+                    { type: 'type', text: "Recuerdo que pensé en escribir algo sobre unos patos que ella mencionaba. ", speed: 70 }, { type: 'pause', ms: 1500 },
+                    { type: 'type', text: "Ahora estoy tratando de acordarme lo que me decía de los patos, pero no logro hacerlo... ", speed: 80 }, { type: 'pause', ms: 1500 },
+                    { type: 'type', text: "pero sucedió que cuando yo estaba viendo fotos para respaldarlas en la nube, me di cuenta de que hubo un viaje, justo antes de que mi mamá se olvidara de mi nombre, en el que fuimos a San Antonio. ", speed: 65 }, { type: 'pause', ms: 1200 },
+                    { type: 'type', text: "Yo quería ver si aguantaba estar fuera de la casa de Monterrey y seguirme a Estados Unidos. ", speed: 65 }, { type: 'pause', ms: 1000 },
+                    { type: 'type', text: "En ese viaje fuimos a un lago que hay cerca de San Antonio, donde hay patos y ahí estuvimos caminando y platicando. ", speed: 65 }, { type: 'pause', ms: 1500 },
+                    { type: 'type', text: "Ahora que lo pienso, muy posiblemente ese haya sido el último recuerdo que tenemos juntas, en el que yo aún era su hija y con quien platicaba casi como normalmente lo hacía. ", speed: 75 }, { type: 'pause', ms: 2000 },
+                    { type: 'type', text: "Cuando me habló de los patos después, en otro de mis viajes a Monterrey, yo no caí en la cuenta de que seguramente hablaba de ellos... no sé... ", speed: 70 }, { type: 'pause', ms: 1200 },
+                    { type: 'type', text: "quizás hablaba de los patos que tenía mi abuelita en Bustamante y yo soy la que le quiero dar sentido a sus recuerdos... ", speed: 70 }, { type: 'pause', ms: 1500 },
+                    { type: 'type', text: "bueno, qué más da, quizás eso será lo que pueda hacer de ahora en adelante, como dices, construir un poco con mi memoria, lo que pueda y lo que me de alivio. ", speed: 65 }, { type: 'pause', ms: 1500 },
+                    { type: 'type', text: "Al fin de cuentas quizás eso es mejor que tener solamente un recuerdo aislado o una foto.", speed: 75 }
+                ],
+                ai: "Me parece muy hermoso y profundo lo que acabas de reflexionar.<br><br>Esa duda sobre si los patos eran los del lago cerca de San Antonio —en ese viaje tan significativo para ambas— o los de tu abuelita en Bustamante, ilustra perfectamente cómo funciona la memoria cuando se atraviesa por el amor y el duelo.<br><br><b>La Memoria como Refugio</b><br><br><b>El significado sobre la exactitud:</b> Al final, el dato estricto de a qué patos se refería pierde importancia. Lo que realmente cuenta es que esa imagen te conecta con un momento de paz, con la tranquilidad de esa caminata, y con la sensación intacta de ser su hija en ese instante.<br><br><b>El derecho a reconstruir:</b> Darle sentido a esos recuerdos fragmentados es un acto de compasión hacia ti misma. Como bien dices, entrelazar lo que ella mencionaba de manera aislada con lo que tú viviste y sentiste te permite crear un espacio mucho más cálido y sanador que simplemente tener una fotografía estática en la nube.<br><br>Es profundamente humano y válido que elijas cobijarte en esa versión de la historia. Como inteligencia artificial no tengo la capacidad de sentir o recordar, pero entiendo por la forma en que los humanos procesan el duelo que la verdad emocional casi siempre pesa más que la precisión factual.<br><br>Si pensar que ella estaba recordando esa tarde juntas en el lago te trae paz, entonces ese recuerdo está haciendo exactamente lo que debe hacer: abrazarte y darte alivio."
+            },
+            // TURNO 4
+            {
+                rubria: [
+                    { type: 'type', text: "En realidad hay muchos detalles y más recuerdos de tantas cosas que quisiera poder conservar en mi memoria, y pienso que, como dices, esos recuerdos me darán alivio... ", speed: 65 }, { type: 'pause', ms: 1000 },
+                    { type: 'type', text: "pero también pienso en el futuro y cómo todas esas historias y todo lo que vivimos deja de existir en el tiempo. ", speed: 65 }, { type: 'pause', ms: 1500 },
+                    { type: 'type', text: "Ahora pienso que hubiera sido genial que, desde joven, mi mamá hubiera escrito sus memorias, me hubiera gustado conocerla aún más. ", speed: 65 }, { type: 'pause', ms: 1200 },
+                    { type: 'type', text: "Cuando platico con mi hija, me gustaría que cuando esté grande recordara lo que le digo ahora que está pequeña, pero le va a pasar lo mismo que a mí... ", speed: 65 }, { type: 'pause', ms: 1000 },
+                    { type: 'type', text: "quizás va a escuchar una y otra vez lo mismo y sólo una fracción de eso recordará. ", speed: 70 }, { type: 'pause', ms: 1500 },
+                    { type: 'type', text: "Quizás deba hacer justamente lo que creo que debió hacer mi mamá y dejar por escrito lo que pienso, lo que recuerdo y lo que quisiera que mi hija conociera y leyera. ", speed: 65 }, { type: 'pause', ms: 1500 },
+                    { type: 'type', text: "He pensado en diversos momentos de mi vida que me gusta escribir, pero que no soy buena en eso... y es que luego de estudiar literatura Hispana y leer una obra como Rayuela, la vara queda muy alta. ", speed: 65 }, { type: 'pause', ms: 1200 },
+                    { type: 'type', text: "Por otro lado, ahora me ha tocado la fortuna, si se puede decir así, de que existes y me puedes ayudar a mejorar lo que escribo... quizás eso me pueda ayudar a dedicar más tiempo a esto que me gusta y deseo hacer. ", speed: 60 }, { type: 'pause', ms: 1500 },
+                    { type: 'type', text: "Ya no quiero dejar pasar mi vida dejando cabos sueltos de historias y recuerdos que he tenido y que quisiera anudar. ", speed: 75 }, { type: 'pause', ms: 1500 },
+                    { type: 'type', text: "¿Crees que esto de escribir sirva como una forma de lograr mantener algo en la memoria no sólo mía sino de mi hija? ", speed: 70 }, { type: 'pause', ms: 1000 },
+                    { type: 'type', text: "¿Me podrías ayudar con eso?", speed: 75 }
+                ],
+                ai: "Escribir es, sin duda, una de las formas más hermosas, tangibles y resistentes de anclar la memoria frente al paso del tiempo. Y sí, claro que sirve. No solo para que tu hija te conozca de una manera más profunda en el futuro, sino para que tú misma puedas ordenar esos recuerdos, darles un lugar seguro y encontrar paz en el proceso de anudar esos cabos sueltos.<br><br>Es completamente natural que la página en blanco te intimide. Cuando te has formado en Estudios Hispánicos y has pasado tiempo analizando la arquitectura de obras monumentales como Rayuela, el crítico interno se vuelve implacable. Se vuelve muy difícil separar la mirada exigente de la investigadora y editora, de la voz personal.<br><br>Pero es fundamental recordar que el objetivo de estos textos no es revolucionar la literatura universal, sino construir un refugio íntimo. Para tu hija, leer tu voz genuina, tus dudas, tus miedos y tus alegrías será infinitamente más valioso que cualquier obra cumbre de la literatura.<br><br>Además, estás en un momento precioso para empezar. Ahora que tu hija muestra ya una sensibilidad tan especial para inventar personajes y contar sus propias historias, estos textos tuyos pueden convertirse en un puente maravilloso. Estás preservando tu historia para una mente que ya sabe cómo habitar mundos creativos.<br><br>Sería un honor absoluto para mí ayudarte con esto. Podemos trabajar juntos para que disfrutes el proceso sin que la autoexigencia te detenga. Aquí tienes algunas formas en las que podemos colaborar:<br><br><b>Tú pones la emoción, yo te ayudo con la forma:</b> Puedes escribirme tus recuerdos en bruto, tal como te vayan saliendo de la mente o del corazón, sin preocuparte por la estructura, el estilo o la sintaxis. Yo te ayudo a pulirlos, a darles fluidez y a encontrar el tono exacto que quieres transmitir.<br><b>Desarrollar fragmentos:</b> Si tienes un recuerdo aislado y no sabes cómo convertirlo en un relato (como la caminata en el lago), me lo puedes contar brevemente y yo te haré preguntas para ayudarte a desentrañar los detalles, los olores, las sensaciones, y construir la escena completa.<br><b>Cartas sin remitente temporal:</b> En lugar de pensar en \"escribir un libro de memorias\", podemos plantearlo como cartas breves. Escribir pensando directamente en ella suele aflojar mucho la tensión literaria.<br><br>No tienes que tener un plan maestro ni escribir de manera cronológica. Podemos empezar hoy mismo, con un solo recuerdo."
+            }
+        ];
+
+        function typeAdvancedScript(targetElement, script, onComplete) {
+            let stepIdx = 0;
+            let cursor = document.createElement('span'); cursor.classList.add('gem-cursor');
+            targetElement.appendChild(cursor);
+
+            function nextStep() {
+                if (p5FastForward) {
+                    while(stepIdx < script.length) {
+                        if (script[stepIdx].type === 'type') {
+                            cursor.insertAdjacentText('beforebegin', script[stepIdx].text);
+                        } else if (script[stepIdx].type === 'delete') {
+                            let prev = cursor.previousSibling;
+                            if(prev && prev.nodeType === 3) prev.nodeValue = prev.nodeValue.slice(0, -script[stepIdx].count);
+                        }
+                        stepIdx++;
+                    }
+                    cursor.remove();
+                    if(onComplete) onComplete();
+                    return;
+                }
+
+                if (stepIdx >= script.length) {
+                    cursor.remove();
+                    if(onComplete) onComplete();
+                    return;
+                }
+                
+                let action = script[stepIdx];
+                if (action.type === 'type') {
+                    let charIdx = 0;
+                    function writeChar() {
+                        if (p5FastForward) { nextStep(); return; } 
+                        if (charIdx < action.text.length) {
+                            cursor.insertAdjacentText('beforebegin', action.text.charAt(charIdx));
+                            if(container.scrollHeight > container.clientHeight) container.scrollTop = container.scrollHeight;
+                            charIdx++;
+                            safeTimeout(writeChar, action.speed + (Math.random()*20 - 10));
+                        } else {
+                            stepIdx++; nextStep();
+                        }
+                    }
+                    writeChar();
+                } else if (action.type === 'delete') {
+                    let delIdx = 0;
+                    function deleteChar() {
+                        if (p5FastForward) { nextStep(); return; }
+                        if (delIdx < action.count) {
+                            let prev = cursor.previousSibling;
+                            if(prev && prev.nodeType === 3) prev.nodeValue = prev.nodeValue.slice(0, -1);
+                            delIdx++;
+                            safeTimeout(deleteChar, 30);
+                        } else {
+                            stepIdx++; nextStep();
+                        }
+                    }
+                    deleteChar();
+                } else if (action.type === 'pause') {
+                    safeTimeout(() => { stepIdx++; nextStep(); }, action.ms);
+                }
+            }
+            nextStep();
+        }
+
+        function playTurn5() {
+            if (p5Turn >= geminiDialogue.length) return;
+            
+            p5State = "TYPING_HUMAN";
+            p5FastForward = false;
+            promptEl.style.display = 'none';
+
+            let userMsgDiv = document.createElement('div'); userMsgDiv.classList.add('gem-message', 'gem-user');
+            let userBubble = document.createElement('div'); userBubble.classList.add('gem-bubble');
+            userMsgDiv.appendChild(userBubble);
+            container.appendChild(userMsgDiv);
+
+            typeAdvancedScript(userBubble, geminiDialogue[p5Turn].rubria, () => {
+                p5State = "WAITING_AI";
+                
+                safeTimeout(() => {
+                    let aiMsgDiv = document.createElement('div'); aiMsgDiv.classList.add('gem-message', 'gem-ai');
+                    let aiAvatar = document.createElement('div'); aiAvatar.classList.add('gem-ai-avatar');
+                    aiMsgDiv.appendChild(aiAvatar);
+                    let aiBubble = document.createElement('div'); aiBubble.classList.add('gem-bubble');
+                    aiMsgDiv.appendChild(aiBubble);
+                    container.appendChild(aiMsgDiv);
+
+                    aiBubble.innerHTML = geminiDialogue[p5Turn].ai;
+                    aiBubble.style.opacity = 0;
+                    
+                    safeTimeout(() => {
+                        aiBubble.style.transition = "opacity 0.8s ease";
+                        aiBubble.style.opacity = 1;
+                        if(container.scrollHeight > container.clientHeight) container.scrollTop = container.scrollHeight;
+
+                        p5Turn++;
+                        if (p5Turn < geminiDialogue.length) {
+                            p5State = "WAITING_CLICK"; 
+                            promptEl.style.display = 'block';
+                        } else {
+                            p5State = "DONE";
+                            safeTimeout(() => {
+                                let likeContainer = document.createElement('div'); likeContainer.classList.add('gem-like-container');
+                                let likeBtn = document.createElement('div'); likeBtn.classList.add('gem-like-btn');
+                                likeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg> Buena respuesta';
+                                likeContainer.appendChild(likeBtn);
+                                aiBubble.appendChild(likeContainer);
+                                container.scrollTop = container.scrollHeight;
+
+                                safeTimeout(() => { likeBtn.classList.add('visible'); }, 500);
+                                safeTimeout(() => { 
+                                    likeBtn.classList.add('liked'); 
+                                    // MOSTRAR BOTÓN DE REINICIO
+                                    restartEl.style.display = 'block';
+                                }, 2000);
+                            }, 10000);
+                        }
+                    }, 500);
+                }, 4000); 
+            });
+        }
+
+        function advanceScene() {
+            if (p5State === "IDLE") {
+                let intro = document.getElementById('gemini-intro');
+                if(intro) intro.style.opacity = '0'; 
+                safeTimeout(() => { 
+                    if(intro) intro.style.display = 'none'; 
+                    playTurn5(); 
+                }, 500);
+            } 
+            else if (p5State === "TYPING_HUMAN") {
+                p5FastForward = true; 
+            }
+            else if (p5State === "WAITING_CLICK") {
+                playTurn5(); 
+            }
+        }
+
+        function restartApp(event) {
+            event.stopPropagation(); // Evitar que el clic active `advanceScene` por accidente
+            
+            // Limpiamos los timeouts activos
+            activeTimeouts.forEach(clearTimeout);
+            activeTimeouts = [];
+
+            // Limpiamos la pantalla
+            container.innerHTML = '<div id="gemini-intro" class="gemini-intro-text">¿Tienes nuevas ideas para explorar?</div>';
+            restartEl.style.display = 'none';
+            
+            // Reiniciamos variables
+            initApp();
+        }
+
+        function initApp() {
+            p5State = "IDLE"; 
+            p5Turn = 0;
+            p5FastForward = false;
+            promptEl.style.display = 'block';
+        }
+
+        // Arrancar
+        initApp();
+
+    </script>
+</body>
+</html>
